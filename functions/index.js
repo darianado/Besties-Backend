@@ -1,9 +1,18 @@
+const admin = require("firebase-admin");
 const functions = require("firebase-functions");
+const hashing = require("./hashing");
 
-// // Create and Deploy Your First Cloud Functions
-// // https://firebase.google.com/docs/functions/write-firebase-functions
-//
-// exports.helloWorld = functions.https.onRequest((request, response) => {
-//   functions.logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+admin.initializeApp();
+
+exports.getRecHTTPs = functions.https.onRequest((req, res) => {
+    const userId = req.body.userId
+    return res.send({ "status": 200, "message": "Ready to handle recommendation request.", "userId": userId })
+})
+
+// Listen for changes in all documents in the 'users' collection
+exports.createHash = functions.firestore.document('users/{userId}').onCreate((snapshot, context) => {
+      const data = snapshot.data();
+      const h = hashing.hash(data.interests);
+
+      return admin.firestore().collection(`user_hashes/${h}/users`).doc(context.params.userId).set({});
+});
