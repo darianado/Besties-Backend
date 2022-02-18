@@ -24,3 +24,19 @@ exports.deleteHash = functions.firestore.document('users/{userId}').onDelete((sn
 
   return admin.firestore().collection(`user_hashes/${h}/users`).doc(context.params.userId).delete();
 });
+
+exports.updateHash = functions.firestore.document('users/{userId}').onUpdate((snapshot, context) => {
+  const prevData = snapshot.before.data();
+  const currentData = snapshot.after.data();
+
+  if(prevData.interests == currentData.interests) {
+    return;
+  }
+
+  const prevHash = hashing.hash(prevData.interests);
+  const currentHash = hashing.hash(currentData.interests);
+
+  admin.firestore().collection(`user_hashes/${prevHash}/users`).doc(context.params.userId).delete();
+
+  return admin.firestore().collection(`user_hashes/${currentHash}/users`).doc(context.params.userId).set({});
+});
