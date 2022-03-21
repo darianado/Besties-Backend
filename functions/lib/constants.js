@@ -17,7 +17,7 @@ exports.USER_INTERESTS_FIELD = 'interests';
 //export const USER_PREFERENCES_MIN_AGE_FIELD = 'minAge';
 //export const USER_PREFERENCES_INTERESTS_FIELD = 'interests';
 exports.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD = 'lastNumberOfRecs';
-exports.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD = 'entries';
+exports.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD = 'recommendations';
 // Storage paths
 exports.USER_AVATAR_FOLDER_REF = 'user_avatars/';
 //# sourceMappingURL=constants.js.map

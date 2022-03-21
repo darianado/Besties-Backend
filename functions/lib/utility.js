@@ -25,7 +25,11 @@ exports.compareSet = compareSet;
 const compareCategorizedInterests = function (c1, c2) {
     const s1 = c1.getFlattenedInterests();
     const s2 = c2.getFlattenedInterests();
-    return jaccard.index(s1, s2);
+    const index = jaccard.index(s1, s2);
+    if (index > 0.6) {
+        console.log("Found a pretty good match.");
+    }
+    return index;
 };
 exports.compareCategorizedInterests = compareCategorizedInterests;
 const deleteAllImagesForUser = async function (userId) {
@@ -35,14 +39,14 @@ const deleteAllImagesForUser = async function (userId) {
     });
 };
 exports.deleteAllImagesForUser = deleteAllImagesForUser;
-const successMessage = async function (data, status = 200) {
+const successMessage = function (data, status = 200) {
     return {
         "status": status,
         "data": data
     };
 };
 exports.successMessage = successMessage;
-const errorMessage = async function (message, status = 400) {
+const errorMessage = function (message, status = 400) {
     return {
         "status": status,
         "message": message

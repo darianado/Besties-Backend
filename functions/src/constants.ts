@@ -17,7 +17,7 @@ export const USER_INTERESTS_FIELD = 'interests';
 //export const USER_PREFERENCES_INTERESTS_FIELD = 'interests';
 
 export const RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD = 'lastNumberOfRecs';
-export const RECOMMENDATIONS_ENTRIES_ARRAY_FIELD = 'entries';
+export const RECOMMENDATIONS_ENTRIES_ARRAY_FIELD = 'recommendations';
 
 // Storage paths
 export const USER_AVATAR_FOLDER_REF = 'user_avatars/';

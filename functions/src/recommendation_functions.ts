@@ -1,14 +1,16 @@
 import { errorMessage, successMessage } from "./utility";
 import * as functions from 'firebase-functions';
 import { CallableContext } from "firebase-functions/v1/https";
-import { userConverter, recommendationConverter, User, Recommendations } from "./models";
+import { userConverter, recommendationConverter, User, Recommendations, IndexedUserID } from "./models";
 const admin = require("firebase-admin");
 const utility = require("./utility");
 const constants = require("./constants");
 
 export const createRecommendations = async function(user: User) {
-  const upperBoundDOB = utility.offsetCurrentDateByYears(user.preferences.maxAge);
-  const lowerBoundDOB = utility.offsetCurrentDateByYears(user.preferences.minAge);
+  const upperBoundDOB = utility.offsetCurrentDateByYears(user.preferences.minAge);
+  const lowerBoundDOB = utility.offsetCurrentDateByYears(user.preferences.maxAge);
+
+  //console.log(`Looking for people born between ${lowerBoundDOB} and ${upperBoundDOB}`);
 
   var users = await admin.firestore().collection(constants.USERS_REF)
                                             .where(constants.USER_DOB_FIELD, '<=', upperBoundDOB)
@@ -20,10 +22,12 @@ export const createRecommendations = async function(user: User) {
                                               return snapshot.docs
                                                   .map((doc: any) => doc.data())
                                                   .filter((entry: User) => entry.uid != user.uid)
-                                                  .sort((userA: User, userB: User) => {
-                                                    const similarityA = utility.compareCategorizedInterests(userA.categorizedInterests, userB.preferences.categorizedInterests)
-                                                    const similarityB = utility.compareCategorizedInterests(userA.categorizedInterests, userB.preferences.categorizedInterests)
-                                                    return ((similarityA < similarityB) ? -1 : ((similarityA > similarityB) ? 1 : 0));
+                                                  .map((entry: User) => {
+                                                    const index = utility.compareCategorizedInterests(entry.categorizedInterests, user.preferences.categorizedInterests);
+                                                    return new IndexedUserID(entry.uid, index);
+                                                  })
+                                                  .sort((entryA: IndexedUserID, entryB: IndexedUserID) => {
+                                                    return ((entryA.index < entryB.index) ? -1 : ((entryA.index > entryB.index) ? 1 : 0));
                                                   });
                                             });
 
@@ -35,41 +39,38 @@ export const createRecommendations = async function(user: User) {
 
   const recommendations = new Recommendations(users.length, users);
 
-  console.log("recommendations: " + recommendations.entries.length);
+  console.log("recommendations: " + recommendations.recommendations.length);
 
   return await admin.firestore().collection(constants.USERS_REF).doc(user.uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).set(recommendations, { 'merge': true });
 }
 
-const removeRecommendations = async function(n: number, entries: User[], ref: any) {
-  const popped = entries.slice(Math.max(entries.length - n, 0));
-  await ref.set({
-    [constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]: entries.slice(0, entries.length - popped.length)
-  }, { 'merge': true });
-
+const removeRecommendations = async function(n: number, recommendations: Recommendations, ref: any) {
+  const popped = recommendations.recommendations.splice(Math.max(recommendations.recommendations.length - n, 0));
+  await ref.withConverter(recommendationConverter).set(recommendations, { 'merge': true });
   return popped;
 }
 
 const _requestRecommendations = async function(uid: string, recs: number) {
   const user = (await admin.firestore().collection(constants.USERS_REF).doc(uid).withConverter(userConverter).get()).data();
 
-  const recommendations = (await admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).get()).data();
+  const recommendations: Recommendations = (await admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).get()).data();
 
-  if(recommendations.entries.length >= 1) {
+  if(recommendations.recommendations.length >= 1) {
     // Return entries as they are, (async append to queue with new recs).
-    const result = await removeRecommendations(recs, recommendations.entries, admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF));
+    const result = await removeRecommendations(recs, recommendations, admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF));
 
-    if(recommendations.entries.length - result.length <= recommendations.lastNumberOfRecs * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
+    if(recommendations.recommendations.length - result.length <= recommendations.numberOfRecommendations * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
       // Add new entries to the queue, if there is less than 10% of the original users in the queue.
       createRecommendations(user);
     }
 
-    return {'data': result };
+    return result.map((e: IndexedUserID) => e.uid);
   } else {
     // await append to queue, and return result, no matter what it is.
     await createRecommendations(user);
     const newRecDoc = await admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).get();
     const result = await removeRecommendations(recs, newRecDoc.data().entries, admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF));
-    return {'data': result };
+    return result.map((e: IndexedUserID) => e.uid);
   }
 };
 
@@ -101,6 +102,8 @@ export const requestRecommendationsHTTP = functions.region(constants.DEPLOYMENT_
     response.send(errorMessage("The 'recs' parameter must be provided in the payload.", 400));
   }
 
-  const result = _requestRecommendations(uid, recs);
-  response.send(successMessage(result));
+  const result = await _requestRecommendations(uid, recs);
+  const responsePayload = successMessage(result);
+  console.log(responsePayload);
+  response.send(responsePayload);
 });
