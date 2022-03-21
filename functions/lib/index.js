@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requestRecommendations = exports.deleteAllImagesForUser = exports.removeRecommendations = exports.createRecommendations = void 0;
+exports.requestRecommendations = exports.requestRecommendationsRequest = exports.updateUser = exports.deleteUser = exports.createUser = exports.deleteAllImagesForUser = exports.removeRecommendations = exports.createRecommendations = void 0;
 //const { firestore } = require("firebase-admin");
 const admin = require("firebase-admin");
 //const functions = require("firebase-functions");
@@ -16,7 +16,7 @@ const USERS_REF = 'users';
 const USER_DERIVED_REF = 'derived';
 const USER_RECOMMENDATIONS_REF = 'recommendations';
 // Firestore field names
-const USER_AGE_FIELD = 'age';
+const USER_DOB_FIELD = 'dob';
 const USER_INTERESTS_FIELD = 'interests';
 //const USER_PREFERENCES_FIELD = 'preferences';
 //const USER_PREFERENCES_MAX_AGE_FIELD = 'maxAge';
@@ -113,8 +113,8 @@ var recommendationConverter = {
 };
 const createRecommendations = async function (user) {
     var users = await admin.firestore().collection(USERS_REF)
-        .where(USER_AGE_FIELD, '<=', user.preferences.maxAge)
-        .where(USER_AGE_FIELD, '>=', user.preferences.minAge)
+        .where(USER_DOB_FIELD, '<=', user.preferences.maxAge)
+        .where(USER_DOB_FIELD, '>=', user.preferences.minAge)
         .where(USER_INTERESTS_FIELD, 'array-contains-any', user.preferences.interests)
         .withConverter(userConverter)
         .get()
@@ -129,7 +129,9 @@ const createRecommendations = async function (user) {
         });
     });
     users = users.slice(0, MAX_NUMBER_OF_RECOMMENDATIONS_TO_GENERATE);
+    console.log("users: " + users.length);
     const recommendations = new Recommendations(users.length, users);
+    console.log("recommendations: " + recommendations.entries.length);
     return await admin.firestore().collection(USERS_REF).doc(user.uid).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).set(recommendations, { 'merge': true });
 };
 exports.createRecommendations = createRecommendations;
@@ -153,7 +155,6 @@ exports.deleteAllImagesForUser = deleteAllImagesForUser;
 // ##########################################################
 exports.createUser = functions.region(DEPLOYMENT_REGION).firestore.document(`${USERS_REF}/{userId}`).onCreate((snapshot, context) => {
     const user = userConverter.fromFirestore(snapshot, context);
-    //console.log(user.toDict());
     return (0, exports.createRecommendations)(user);
 });
 exports.deleteUser = functions.region(DEPLOYMENT_REGION).firestore.document(`${USERS_REF}/{userId}`).onDelete((snapshot, context) => {
@@ -161,28 +162,25 @@ exports.deleteUser = functions.region(DEPLOYMENT_REGION).firestore.document(`${U
     return snapshot.ref.collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF).delete();
 });
 exports.updateUser = functions.region(DEPLOYMENT_REGION).firestore.document(`${USERS_REF}/{userId}`).onUpdate((snapshot, context) => {
-    const preferencesBefore = snapshot.before.data().preferences;
-    const preferencesAfter = snapshot.after.data().preferences;
-    if (preferencesAfter == preferencesBefore) {
+    const userBefore = userConverter.fromFirestore(snapshot.before, context);
+    const userAfter = userConverter.fromFirestore(snapshot.after, context);
+    if (userBefore.preferences == userAfter.preferences) {
         return;
     }
-    const user = userConverter.fromFirestore(snapshot.after, context);
-    return (0, exports.createRecommendations)(user);
+    return (0, exports.createRecommendations)(userAfter);
 });
 // ##########################################################
 // # Callable functions
 // ##########################################################
-exports.requestRecommendations = functions.region(DEPLOYMENT_REGION).https.onRequest(async (request, response) => {
+exports.requestRecommendationsRequest = functions.region(DEPLOYMENT_REGION).https.onRequest(async (request, response) => {
     const userId = request.body.userId;
     const recs = request.body.recs;
-    const user = await admin.firestore().collection(USERS_REF).doc(userId).withConverter(userConverter).get();
-    const recommendationDoc = await admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF).get();
-    const entries = recommendationDoc.data().entries;
-    const lastNumberOfRecs = recommendationDoc.data().lastNumberOfRecs;
-    if (entries.length >= 1) {
+    const user = (await admin.firestore().collection(USERS_REF).doc(userId).withConverter(userConverter).get()).data();
+    const recommendations = (await admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).get()).data();
+    if (recommendations.entries.length >= 1) {
         // Return entries as they are, (async append to queue with new recs).
-        const result = await (0, exports.removeRecommendations)(recs, entries, admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF));
-        if (entries.length - result.length <= lastNumberOfRecs * THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
+        const result = await (0, exports.removeRecommendations)(recs, recommendations.entries, admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF));
+        if (recommendations.entries.length - result.length <= recommendations.lastNumberOfRecs * THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
             // Add new entries to the queue, if there is less than 10% of the original users in the queue.
             (0, exports.createRecommendations)(user);
         }
@@ -196,4 +194,45 @@ exports.requestRecommendations = functions.region(DEPLOYMENT_REGION).https.onReq
         response.send({ 'data': result });
     }
 });
+exports.requestRecommendations = functions.region(DEPLOYMENT_REGION).https.onCall(async (data, context) => {
+    const userId = data.userId;
+    const recs = data.recs;
+    const user = (await admin.firestore().collection(USERS_REF).doc(userId).withConverter(userConverter).get()).data();
+    const recommendations = (await admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).get()).data();
+    if (recommendations.entries.length >= 1) {
+        // Return entries as they are, (async append to queue with new recs).
+        const result = await (0, exports.removeRecommendations)(recs, recommendations.entries, admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF));
+        if (recommendations.entries.length - result.length <= recommendations.lastNumberOfRecs * THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
+            // Add new entries to the queue, if there is less than 10% of the original users in the queue.
+            (0, exports.createRecommendations)(user);
+        }
+        return { 'data': result };
+    }
+    else {
+        // await append to queue, and return result, no matter what it is.
+        await (0, exports.createRecommendations)(user);
+        const newRecDoc = await admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF).get();
+        const result = await (0, exports.removeRecommendations)(recs, newRecDoc.data().entries, admin.firestore().collection(USERS_REF).doc(userId).collection(USER_DERIVED_REF).doc(USER_RECOMMENDATIONS_REF));
+        return { 'data': result };
+    }
+});
+/*
+// Test functions for Flutter testing.
+
+export const testNoParam = functions.region(DEPLOYMENT_REGION).https.onCall((data: any, context: CallableContext) => {
+  return {"hello": "world"};
+});
+
+export const testUserIDfromAuth = functions.region(DEPLOYMENT_REGION).https.onCall((data: any, context: CallableContext) => {
+  return {"hello": context.auth?.uid};
+});
+
+export const testParamString = functions.region(DEPLOYMENT_REGION).https.onCall((data: any, context: CallableContext) => {
+  return {"hello": data.text};
+});
+
+export const testParamNumber = functions.region(DEPLOYMENT_REGION).https.onCall((data: any, context: CallableContext) => {
+  return {"hello": data.num};
+});
+*/ 
 //# sourceMappingURL=index.js.map
