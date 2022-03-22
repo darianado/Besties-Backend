@@ -20,7 +20,27 @@ const getLikes = async function(uid: string) {
 
 export const likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data: any, context: CallableContext) => {
   const uid = context.auth?.uid;
-  const profileID = data.uid;
+  const profileID = data.likerUserID; // data.likeeUserID
+  const collectionRef = admin.firestore().collection("users") ;
+ 
+
+  const profileLikes: any [] = await getLikes(profileID);
+
+
+  await collectionRef.doc(uid).set({
+    "likes": firestore.FieldValue.arrayUnion([profileID])}, { 'merge': true });
+
+  if (profileLikes.includes(uid)) { 
+     createMatch(uid, profileID) ; 
+    }
+  else return;
+
+
+});
+
+export const likeUserHTTP = functions.region(constants.DEPLOYMENT_REGION).https.onRequest(async (request: functions.https.Request, response: functions.Response<any>) => {
+  const uid = request.body.likerUserID
+  const profileID =  request.body.likeeUserID
   const collectionRef = admin.firestore().collection("users") ;
  
 

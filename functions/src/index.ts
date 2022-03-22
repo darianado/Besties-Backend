@@ -13,3 +13,4 @@ export const requestRecommendationsHTTP = recommendationFunctions.requestRecomme
 export const requestRecommendations = recommendationFunctions.requestRecommendations;
 
 export const likeUser = matchmakingFunctions.likeUser;
+export const likeUserHTTP = matchmakingFunctions.likeUserHTTP;
