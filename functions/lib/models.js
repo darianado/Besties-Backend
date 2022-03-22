@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.recommendationConverter = exports.userConverter = exports.Recommendations = exports.User = exports.Preferences = exports.CategorizedInterests = exports.Category = void 0;
+exports.recommendationConverter = exports.userConverter = exports.Recommendations = exports.IndexedUserID = exports.User = exports.Preferences = exports.CategorizedInterests = exports.Category = void 0;
 const constants = require("./constants");
 class Category {
     constructor(title, interests) {
@@ -83,20 +83,32 @@ class User {
     }
 }
 exports.User = User;
+class IndexedUserID {
+    constructor(uid, index) {
+        this.uid = uid;
+        this.index = index;
+    }
+    toDict() {
+        return {
+            "uid": this.uid,
+            "index": this.index,
+        };
+    }
+    static fromDict(dict) {
+        return new IndexedUserID(dict.uid, dict.index);
+    }
+}
+exports.IndexedUserID = IndexedUserID;
 class Recommendations {
     constructor(numberOfRecommendations, entries) {
+        this.test = [new IndexedUserID("abc123", 0.2), new IndexedUserID("bca321", 0.1)];
         this.numberOfRecommendations = numberOfRecommendations;
-        if (typeof entries[0] === 'string') {
-            this.entries = entries;
-        }
-        else {
-            this.entries = entries.map((user) => user.uid);
-        }
+        this.recommendations = entries;
     }
     toDict() {
         return {
             [constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD]: this.numberOfRecommendations,
-            [constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]: this.entries
+            [constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]: this.recommendations.map(entry => entry.toDict())
         };
     }
 }
@@ -118,7 +130,8 @@ exports.recommendationConverter = {
     },
     fromFirestore: (snapshot, options) => {
         const data = snapshot.data(options);
-        return new Recommendations(data[constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD], data[constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]);
+        const recommendations = data.recommendations.map((entry) => new IndexedUserID(entry.uid, entry.index));
+        return new Recommendations(data[constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD], recommendations);
     }
 };
 //# sourceMappingURL=models.js.map

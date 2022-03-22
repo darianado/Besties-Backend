@@ -24,7 +24,13 @@ export const compareSet = function(s1: string[], s2: string[]) {
 export const compareCategorizedInterests = function(c1: CategorizedInterests, c2: CategorizedInterests) {
   const s1 = c1.getFlattenedInterests()
   const s2 = c2.getFlattenedInterests()
-  return jaccard.index(s1, s2);
+  const index = jaccard.index(s1, s2);
+
+  if(index > 0.6) {
+    console.log("Found a pretty good match.")
+  }
+
+  return index
 }
 
 export const deleteAllImagesForUser = async function(userId: string) {
@@ -34,14 +40,14 @@ export const deleteAllImagesForUser = async function(userId: string) {
   });
 }
 
-export const successMessage = async function(data: any, status: number = 200) {
+export const successMessage = function(data: any, status: number = 200) {
   return {
     "status": status,
     "data": data
   };
 }
 
-export const errorMessage = async function(message: string, status: number = 400) {
+export const errorMessage = function(message: string, status: number = 400) {
   return {
     "status": status,
     "message": message

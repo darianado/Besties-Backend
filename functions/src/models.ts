@@ -121,24 +121,42 @@ export class User {
   }
 }
 
+export class IndexedUserID {
+  uid: string;
+  index: number;
+
+  constructor(uid: string, index: number) {
+    this.uid = uid;
+    this.index = index;
+  }
+
+  toDict() {
+    return {
+      "uid": this.uid,
+      "index": this.index,
+    }
+  }
+
+  static fromDict(dict: any) {
+    return new IndexedUserID(dict.uid, dict.index);
+  }
+}
+
 export class Recommendations {
   numberOfRecommendations: number;
-  entries: string[];
+  recommendations: IndexedUserID[];
 
-  constructor(numberOfRecommendations: number, entries: (string | User)[]) {
+  test: IndexedUserID[] = [new IndexedUserID("abc123", 0.2), new IndexedUserID("bca321", 0.1)];
+
+  constructor(numberOfRecommendations: number, entries: IndexedUserID[]) {
     this.numberOfRecommendations = numberOfRecommendations;
-
-    if (typeof entries[0] === 'string') {
-      this.entries = entries as string[];
-    } else {
-      this.entries = (entries as User[]).map((user: User) => user.uid);
-    }
+    this.recommendations = entries;
   }
 
   toDict() {
     return {
       [constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD]: this.numberOfRecommendations,
-      [constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]: this.entries
+      [constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]: this.recommendations.map(entry => entry.toDict())
     };
   }
 }
@@ -162,6 +180,7 @@ export var recommendationConverter = {
   },
   fromFirestore: (snapshot: any, options: any) => {
     const data = snapshot.data(options);
-    return new Recommendations(data[constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD], data[constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]);
+    const recommendations = data.recommendations.map((entry: any) => new IndexedUserID(entry.uid, entry.index));
+    return new Recommendations(data[constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD], recommendations);
   }
 }
