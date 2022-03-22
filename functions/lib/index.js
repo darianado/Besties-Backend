@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.test = exports.requestRecommendations = exports.requestRecommendationsHTTP = exports.updateUser = exports.deleteUser = exports.createUser = void 0;
+exports.likeUser = exports.requestRecommendations = exports.requestRecommendationsHTTP = exports.updateUser = exports.deleteUser = exports.createUser = void 0;
 const admin = require("firebase-admin");
 admin.initializeApp();
 const backgroundFunctions = require("./background_functions");
@@ -11,5 +11,5 @@ exports.deleteUser = backgroundFunctions.deleteUser;
 exports.updateUser = backgroundFunctions.updateUser;
 exports.requestRecommendationsHTTP = recommendationFunctions.requestRecommendationsHTTP;
 exports.requestRecommendations = recommendationFunctions.requestRecommendations;
-exports.test = matchmakingFunctions.test;
+exports.likeUser = matchmakingFunctions.likeUser;
 //# sourceMappingURL=index.js.map

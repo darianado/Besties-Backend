@@ -54,7 +54,7 @@ class Preferences {
 }
 exports.Preferences = Preferences;
 class User {
-    constructor(uid, bio, firstName, lastName, dob, gender, categorizedInterests, profileImageUrl, university, preferences) {
+    constructor(uid, bio, firstName, lastName, dob, gender, categorizedInterests, profileImageUrl, university, preferences, likes) {
         this.uid = uid;
         this.bio = bio;
         this.firstName = firstName;
@@ -65,6 +65,7 @@ class User {
         this.profileImageUrl = profileImageUrl;
         this.university = university;
         this.preferences = preferences;
+        this.likes = likes;
     }
     toDict() {
         return {
@@ -108,7 +109,7 @@ exports.userConverter = {
         const data = snapshot.data(options);
         const categorizedInterests = CategorizedInterests.fromList(data.categorizedInterests);
         const preferences = Preferences.fromDict(data.preferences);
-        return new User(snapshot.id, data.bio, data.firstName, data.lastName, data.dob, data.gender, categorizedInterests, data.profileImageUrl, data.university, preferences);
+        return new User(snapshot.id, data.bio, data.firstName, data.lastName, data.dob, data.gender, categorizedInterests, data.profileImageUrl, data.university, preferences, data.likes);
     }
 };
 exports.recommendationConverter = {

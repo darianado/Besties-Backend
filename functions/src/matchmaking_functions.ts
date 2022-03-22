@@ -1,17 +1,39 @@
 const constants = require("./constants");
+import { firestore } from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { CallableContext } from 'firebase-functions/v1/https';
+import { userConverter } from './models';
 const admin = require("firebase-admin");
 
-export const createMatch = async function() {
-  await admin.firestore().collection("test").doc().set({
-    "field": 2,
+
+export const createMatch = async function( uid1 : any , uid2 : any ) {
+  await admin.firestore().collection("matches").doc().set({
+    "uid1": uid1,
+    "uid2": uid2,
   }, { 'merge': true });
 }
 
-export const like = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data: any, context: CallableContext) => {
+const getLikes = async function(uid: string) {
+  const querySnapshot = await admin.firestore().collection("users").doc(uid).withConverter(userConverter).get();
+  return querySnapshot.data().likes; 
+}
+
+export const likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data: any, context: CallableContext) => {
   const uid = context.auth?.uid;
-  const otherUID = data.otherUID;
-  console.log(uid);
-  // Check if who you like is liking you back
+  const profileID = data.uid;
+  const collectionRef = admin.firestore().collection("users") ;
+ 
+
+  const profileLikes: any [] = await getLikes(profileID);
+
+
+  await collectionRef.doc(uid).set({
+    "likes": firestore.FieldValue.arrayUnion([profileID])}, { 'merge': true });
+
+  if (profileLikes.includes(uid)) { 
+     createMatch(uid, profileID) ; 
+    }
+  else return;
+
+
 });

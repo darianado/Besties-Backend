@@ -12,4 +12,4 @@ export const updateUser = backgroundFunctions.updateUser;
 export const requestRecommendationsHTTP = recommendationFunctions.requestRecommendationsHTTP;
 export const requestRecommendations = recommendationFunctions.requestRecommendations;
 
-export const test = matchmakingFunctions.test;
+export const likeUser = matchmakingFunctions.likeUser;

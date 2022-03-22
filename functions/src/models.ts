@@ -79,6 +79,7 @@ export class User {
   profileImageUrl: string;
   university: string;
   preferences: Preferences;
+  likes: string[];
 
   constructor(uid: string,
               bio: string,
@@ -89,7 +90,8 @@ export class User {
               categorizedInterests: CategorizedInterests,
               profileImageUrl: string,
               university: string,
-              preferences: Preferences) {
+              preferences: Preferences,
+              likes : string[]) {
     this.uid = uid;
     this.bio = bio;
     this.firstName = firstName;
@@ -100,6 +102,7 @@ export class User {
     this.profileImageUrl = profileImageUrl;
     this.university = university;
     this.preferences = preferences;
+    this.likes = likes;
   }
 
   toDict() {
@@ -149,7 +152,7 @@ export var userConverter = {
 
     const categorizedInterests = CategorizedInterests.fromList(data.categorizedInterests);
     const preferences = Preferences.fromDict(data.preferences);
-    return new User(snapshot.id, data.bio, data.firstName, data.lastName, data.dob, data.gender, categorizedInterests, data.profileImageUrl, data.university, preferences);
+    return new User(snapshot.id, data.bio, data.firstName, data.lastName, data.dob, data.gender, categorizedInterests, data.profileImageUrl, data.university, preferences, data.likes);
   }
 }
 
