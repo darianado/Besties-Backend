@@ -3,6 +3,7 @@ import { firestore } from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { CallableContext } from 'firebase-functions/v1/https';
 import { userConverter } from './models';
+import { errorMessage } from './utility';
 const admin = require("firebase-admin");
 
 
@@ -18,11 +19,16 @@ const getLikes = async function(uid: string) {
   return querySnapshot.data().likes; 
 }
 
+
+
 export const likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data: any, context: CallableContext) => {
   const uid = context.auth?.uid;
-  const profileID = data.likerUserID; // data.likeeUserID
+  const profileID = data.likerUserID; 
   const collectionRef = admin.firestore().collection("users") ;
  
+  if(uid == null) {
+    return errorMessage("The caller must be authenticated.", 401);
+  }
 
   const profileLikes: any [] = await getLikes(profileID);
 
@@ -32,9 +38,12 @@ export const likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCa
 
   if (profileLikes.includes(uid)) { 
      createMatch(uid, profileID) ; 
+     return true;
     }
-  else return;
 
+  else {
+    return false;
+  }
 
 });
 
