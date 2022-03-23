@@ -71,7 +71,7 @@ exports.requestRecommendations = functions.region(constants.DEPLOYMENT_REGION).h
     if (recs == null) {
         return (0, utility_1.errorMessage)("The 'recs' parameter must be provided in the payload.", 400);
     }
-    const result = _requestRecommendations(uid, recs);
+    const result = await _requestRecommendations(uid, recs);
     return (0, utility_1.successMessage)(result);
 });
 exports.requestRecommendationsHTTP = functions.region(constants.DEPLOYMENT_REGION).https.onRequest(async (request, response) => {

@@ -3,7 +3,7 @@ import { firestore } from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { CallableContext } from 'firebase-functions/v1/https';
 import { userConverter } from './models';
-import { errorMessage } from './utility';
+import { errorMessage, successMessage } from './utility';
 const admin = require("firebase-admin");
 
 
@@ -20,49 +20,59 @@ const getLikes = async function(uid: string) {
 }
 
 
+const _likeUser = async function(userID: string, otherUserID: string) {
+  const collectionRef = admin.firestore().collection("users");
+
+  const userLikes: string[] = await getLikes(userID);
+  const otherUsersLikes: string[] = await getLikes(otherUserID);
+
+  if(userLikes != null) {
+    await collectionRef.doc(userID).set({
+      "likes": firestore.FieldValue.arrayUnion(otherUserID)}, { 'merge': true });
+  } else {
+    await collectionRef.doc(userID).set({
+      "likes": [otherUserID]}, { 'merge': true });
+  }
+
+  if (otherUsersLikes != null && otherUsersLikes.includes(userID)) {
+    createMatch(userID, otherUserID);
+    return {"matched": true};
+  }
+
+  return {"matched": false};
+}
+
 
 export const likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data: any, context: CallableContext) => {
-  const uid = context.auth?.uid;
-  const profileID = data.likerUserID; 
-  const collectionRef = admin.firestore().collection("users") ;
+  const userID = context.auth?.uid;
+  const otherUserID = data.likerUserID;
  
-  if(uid == null) {
+  if(userID == null) {
     return errorMessage("The caller must be authenticated.", 401);
   }
 
-  const profileLikes: any [] = await getLikes(profileID);
-
-
-  await collectionRef.doc(uid).set({
-    "likes": firestore.FieldValue.arrayUnion([profileID])}, { 'merge': true });
-
-  if (profileLikes.includes(uid)) { 
-     createMatch(uid, profileID) ; 
-     return true;
-    }
-
-  else {
-    return false;
+  if(otherUserID == null) {
+    return errorMessage("The 'otherUserID' parameter must be provided in the payload.", 400);
   }
 
+  const result = await _likeUser(userID, otherUserID);
+
+  return successMessage(result);
 });
 
 export const likeUserHTTP = functions.region(constants.DEPLOYMENT_REGION).https.onRequest(async (request: functions.https.Request, response: functions.Response<any>) => {
-  const uid = request.body.likerUserID
-  const profileID =  request.body.likeeUserID
-  const collectionRef = admin.firestore().collection("users") ;
- 
+  const userID = request.body.likerUserID
+  const otherUserID =  request.body.otherUserID
 
-  const profileLikes: any [] = await getLikes(profileID);
+  if(userID == null) {
+    response.send(errorMessage("The 'userID' parameter must be provided in the payload.", 400));
+  }
 
+  if(otherUserID == null) {
+    response.send(errorMessage("The 'otherUserID' parameter must be provided in the payload.", 400));
+  }
 
-  await collectionRef.doc(uid).set({
-    "likes": firestore.FieldValue.arrayUnion([profileID])}, { 'merge': true });
+  const result = await _likeUser(userID, otherUserID);
 
-  if (profileLikes.includes(uid)) { 
-     createMatch(uid, profileID) ; 
-    }
-  else return;
-
-
+  response.send(successMessage(result));
 });
