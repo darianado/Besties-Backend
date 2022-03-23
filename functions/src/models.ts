@@ -146,8 +146,6 @@ export class Recommendations {
   numberOfRecommendations: number;
   recommendations: IndexedUserID[];
 
-  test: IndexedUserID[] = [new IndexedUserID("abc123", 0.2), new IndexedUserID("bca321", 0.1)];
-
   constructor(numberOfRecommendations: number, entries: IndexedUserID[]) {
     this.numberOfRecommendations = numberOfRecommendations;
     this.recommendations = entries;

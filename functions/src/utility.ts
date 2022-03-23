@@ -25,11 +25,6 @@ export const compareCategorizedInterests = function(c1: CategorizedInterests, c2
   const s1 = c1.getFlattenedInterests()
   const s2 = c2.getFlattenedInterests()
   const index = jaccard.index(s1, s2);
-
-  if(index > 0.6) {
-    console.log("Found a pretty good match.")
-  }
-
   return index
 }
 

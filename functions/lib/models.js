@@ -101,7 +101,6 @@ class IndexedUserID {
 exports.IndexedUserID = IndexedUserID;
 class Recommendations {
     constructor(numberOfRecommendations, entries) {
-        this.test = [new IndexedUserID("abc123", 0.2), new IndexedUserID("bca321", 0.1)];
         this.numberOfRecommendations = numberOfRecommendations;
         this.recommendations = entries;
     }

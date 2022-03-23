@@ -44,20 +44,23 @@ export const createRecommendations = async function(user: User) {
   return await admin.firestore().collection(constants.USERS_REF).doc(user.uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).set(recommendations, { 'merge': true });
 }
 
-const removeRecommendations = async function(n: number, recommendations: Recommendations, ref: any) {
-  const popped = recommendations.recommendations.splice(Math.max(recommendations.recommendations.length - n, 0));
-  await ref.withConverter(recommendationConverter).set(recommendations, { 'merge': true });
+const removeRecommendations = async function(n: number, recommendationsObject: Recommendations, ref: any) {
+  const popped = recommendationsObject.recommendations.splice(Math.max(recommendationsObject.recommendations.length - n, 0));
+  await ref.withConverter(recommendationConverter).set(recommendationsObject, { 'merge': true });
+  
   return popped;
 }
 
 const _requestRecommendations = async function(uid: string, recs: number) {
   const user = (await admin.firestore().collection(constants.USERS_REF).doc(uid).withConverter(userConverter).get()).data();
+  const recDocRef = admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF);
 
-  const recommendations: Recommendations = (await admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(recommendationConverter).get()).data();
+  const recommendations: Recommendations = (await recDocRef.withConverter(recommendationConverter).get()).data();
+  
 
-  if(recommendations.recommendations.length >= 1) {
+  if(recommendations != undefined && recommendations.recommendations.length >= 1) {
     // Return entries as they are, (async append to queue with new recs).
-    const result = await removeRecommendations(recs, recommendations, admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF));
+    const result = await removeRecommendations(recs, recommendations, recDocRef);
 
     if(recommendations.recommendations.length - result.length <= recommendations.numberOfRecommendations * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
       // Add new entries to the queue, if there is less than 10% of the original users in the queue.
@@ -68,8 +71,8 @@ const _requestRecommendations = async function(uid: string, recs: number) {
   } else {
     // await append to queue, and return result, no matter what it is.
     await createRecommendations(user);
-    const newRecDoc = await admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).get();
-    const result = await removeRecommendations(recs, newRecDoc.data().entries, admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF));
+    const newRecDoc: Recommendations = (await recDocRef.withConverter(recommendationConverter).get()).data();
+    const result = await removeRecommendations(recs, newRecDoc, recDocRef);
     return result.map((e: IndexedUserID) => e.uid);
   }
 };
@@ -86,8 +89,14 @@ export const requestRecommendations = functions.region(constants.DEPLOYMENT_REGI
     return errorMessage("The 'recs' parameter must be provided in the payload.", 400);
   }
 
-  const result = await _requestRecommendations(uid, recs);
+  
+
+  try {
+    const result = await _requestRecommendations(uid, recs);
   return successMessage(result);
+  } catch(err) {
+    return errorMessage((err as Error).message);
+  }
 })
 
 export const requestRecommendationsHTTP = functions.region(constants.DEPLOYMENT_REGION).https.onRequest(async (request: functions.https.Request, response: functions.Response<any>) => {
@@ -102,7 +111,13 @@ export const requestRecommendationsHTTP = functions.region(constants.DEPLOYMENT_
     response.send(errorMessage("The 'recs' parameter must be provided in the payload.", 400));
   }
 
-  const result = await _requestRecommendations(uid, recs);
-  const responsePayload = successMessage(result);
-  response.send(responsePayload);
+
+  try {
+    const result = await _requestRecommendations(uid, recs);
+    const responsePayload = successMessage(result);
+    response.send(responsePayload);
+  } catch(err) {
+    const responsePayload = errorMessage((err as Error).message);
+    response.send(responsePayload);
+  }
 });
