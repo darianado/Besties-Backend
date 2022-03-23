@@ -45,7 +45,7 @@ const _likeUser = async function(userID: string, otherUserID: string) {
 
 export const likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data: any, context: CallableContext) => {
   const userID = context.auth?.uid;
-  const otherUserID = data.likerUserID;
+  const otherUserID = data.profileUserID;
  
   if(userID == null) {
     return errorMessage("The caller must be authenticated.", 401);
