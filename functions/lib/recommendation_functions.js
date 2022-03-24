@@ -58,7 +58,6 @@ const _requestRecommendations = async function (uid, recs) {
         // await append to queue, and return result, no matter what it is.
         await (0, exports.createRecommendations)(user);
         const newRecDoc = (await recDocRef.withConverter(models_1.recommendationConverter).get()).data();
-        console.log("Finally, we have some content? ", newRecDoc);
         const result = await removeRecommendations(recs, newRecDoc, recDocRef);
         return result.map((e) => e.uid);
     }
