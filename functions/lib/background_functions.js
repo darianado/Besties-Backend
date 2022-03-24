@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateUser = exports.deleteUser = exports.createUser = void 0;
+exports.updateUser = exports.deleteFromFirestore = exports.createUser = void 0;
 const functions = require("firebase-functions");
 const recommendationFunctions = require("./recommendation_functions");
 const utility = require("./utility");
@@ -15,7 +15,7 @@ exports.createUser = functions.region(constants.DEPLOYMENT_REGION).firestore.doc
 //   utility.deleteAllImagesForUser(snapshot.id);
 //   return snapshot.ref.collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).delete();
 // });
-exports.deleteUser = functions.region(constants.DEPLOYMENT_REGION).auth.user().onDelete(async (event) => {
+exports.deleteFromFirestore = functions.region(constants.DEPLOYMENT_REGION).auth.user().onDelete(async (event) => {
     const uid = event.uid;
     const collectionRef = admin.firestore().collection("users").doc(uid); //document of the user to be deleted
     utility.deleteAllImagesForUser(uid);

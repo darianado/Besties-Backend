@@ -6,7 +6,7 @@ const recommendationFunctions = require("./recommendation_functions");
 const matchmakingFunctions = require("./matchmaking_functions");
 
 export const createUser = backgroundFunctions.createUser;
-export const deleteUser = backgroundFunctions.deleteUser;
+export const deleteFromFirestore = backgroundFunctions.deleteFromFirestore;
 export const updateUser = backgroundFunctions.updateUser;
 
 export const requestRecommendationsHTTP = recommendationFunctions.requestRecommendationsHTTP;

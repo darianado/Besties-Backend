@@ -12,13 +12,7 @@ export const createUser = functions.region(constants.DEPLOYMENT_REGION).firestor
   return recommendationFunctions.createRecommendations(user);
 });
 
-
-// export const deleteUser = functions.region(constants.DEPLOYMENT_REGION).firestore.document(`${constants.USERS_REF}/{userId}`).onDelete((snapshot: functions.firestore.QueryDocumentSnapshot, context: functions.EventContext) => {
-//   utility.deleteAllImagesForUser(snapshot.id);
-//   return snapshot.ref.collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).delete();
-// });
-
-export const deleteUser = functions.region(constants.DEPLOYMENT_REGION).auth.user().onDelete(async (event : auth.UserRecord) => {
+export const deleteFromFirestore = functions.region(constants.DEPLOYMENT_REGION).auth.user().onDelete(async (event : auth.UserRecord) => {
   const uid = event.uid;
   const collectionRef = admin.firestore().collection("users").doc(uid); //document of the user to be deleted
   
