@@ -2,11 +2,15 @@ import { errorMessage, successMessage } from "./utility";
 import * as functions from 'firebase-functions';
 import { CallableContext } from "firebase-functions/v1/https";
 import { userConverter, recommendationConverter, User, Recommendations, IndexedUserID } from "./models";
+import { v4 as uuidv4 } from 'uuid';
 const admin = require("firebase-admin");
 const utility = require("./utility");
 const constants = require("./constants");
 
-export const createRecommendations = async function(user: User) {
+export const createRecommendations = async function(user: User, queueID: string) {
+  await admin.firestore().collection(constants.USERS_REF).doc(user.uid).set({"preferences": { "queueID": queueID }}, { 'merge': true });
+
+
   const upperBoundDOB = utility.offsetCurrentDateByYears(user.preferences.minAge);
   const lowerBoundDOB = utility.offsetCurrentDateByYears(user.preferences.maxAge);
 
@@ -15,13 +19,14 @@ export const createRecommendations = async function(user: User) {
   var users = await admin.firestore().collection(constants.USERS_REF)
                                             .where(constants.USER_DOB_FIELD, '<=', upperBoundDOB)
                                             .where(constants.USER_DOB_FIELD, '>=', lowerBoundDOB)
-                                            //.where(constants.USER_INTERESTS_FIELD, 'array-contains-any', user.preferences.interests)
+                                            .where('gender', 'in', user.preferences.genders)
                                             .withConverter(userConverter)
                                             .get()
                                             .then((snapshot: any) => {
                                               return snapshot.docs
                                                   .map((doc: any) => doc.data())
                                                   .filter((entry: User) => entry.uid != user.uid)
+                                                  .filter((entry: User) => (user.likes != null) ? !user.likes.includes(entry.uid) : true)
                                                   .map((entry: User) => {
                                                     const index = utility.compareCategorizedInterests(entry.categorizedInterests, user.preferences.categorizedInterests);
                                                     return new IndexedUserID(entry.uid, index);
@@ -37,7 +42,7 @@ export const createRecommendations = async function(user: User) {
 
   console.log("users: " + users.length);
 
-  const recommendations = new Recommendations(users.length, users);
+  const recommendations = new Recommendations(queueID, users.length, users);
 
   console.log("recommendations: " + recommendations.recommendations.length);
 
@@ -51,29 +56,31 @@ const removeRecommendations = async function(n: number, recommendationsObject: R
   return popped;
 }
 
-const _requestRecommendations = async function(uid: string, recs: number) {
+const _requestRecommendations = async function(uid: string, recs: number, stop: boolean = false) : Promise<string[]> {
   const user = (await admin.firestore().collection(constants.USERS_REF).doc(uid).withConverter(userConverter).get()).data();
   const recDocRef = admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF);
 
   const recommendations: Recommendations = (await recDocRef.withConverter(recommendationConverter).get()).data();
-  
 
-  if(recommendations != undefined && recommendations.recommendations.length >= 1) {
-    // Return entries as they are, (async append to queue with new recs).
+  if (recommendations != undefined && recommendations.recommendations.length >= 1) {
+
     const result = await removeRecommendations(recs, recommendations, recDocRef);
-
     if(recommendations.recommendations.length - result.length <= recommendations.numberOfRecommendations * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
       // Add new entries to the queue, if there is less than 10% of the original users in the queue.
-      createRecommendations(user);
+      createRecommendations(user, recommendations.queueID);
     }
+    return result.map((e: IndexedUserID) => e.uid);
 
-    return result.map((e: IndexedUserID) => e.uid);
+  } else if(recommendations != undefined) {
+    await createRecommendations(user, recommendations.queueID);
   } else {
-    // await append to queue, and return result, no matter what it is.
-    await createRecommendations(user);
-    const newRecDoc: Recommendations = (await recDocRef.withConverter(recommendationConverter).get()).data();
-    const result = await removeRecommendations(recs, newRecDoc, recDocRef);
-    return result.map((e: IndexedUserID) => e.uid);
+    await createRecommendations(user, uuidv4());
+  }
+
+  if(stop) {
+    return [];
+  } else {
+    return _requestRecommendations(uid, recs, true);
   }
 };
 

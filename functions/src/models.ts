@@ -41,15 +41,25 @@ export class CategorizedInterests {
     const categories = list.map(entry => Category.fromDict(entry));
     return new CategorizedInterests(categories);
   }
+
+  equals(other: CategorizedInterests) {
+    const flattenedInterests1 = this.getFlattenedInterests()
+    const flattenedInterests2 = other.getFlattenedInterests()
+    return flattenedInterests1.sort().join(',') === flattenedInterests2.sort().join(',');
+  }
 }
 
 export class Preferences {
   categorizedInterests: CategorizedInterests;
+  genders: string[];
+  queueID: string;
   maxAge: number;
   minAge: number;
 
-  constructor(categorizedInterests: CategorizedInterests, maxAge: number, minAge: number) {
+  constructor(categorizedInterests: CategorizedInterests, genders: string[], queueID: string, maxAge: number, minAge: number) {
     this.categorizedInterests = categorizedInterests;
+    this.genders = genders;
+    this.queueID = queueID;
     this.maxAge = maxAge;
     this.minAge = minAge;
   }
@@ -64,7 +74,11 @@ export class Preferences {
 
   static fromDict(dict: any) : Preferences {
     const categorizedInterests = CategorizedInterests.fromList(dict.categorizedInterests);
-    return new Preferences(categorizedInterests, dict.maxAge, dict.minAge);
+    return new Preferences(categorizedInterests, dict.genders, dict.queueID, dict.maxAge, dict.minAge);
+  }
+
+  equals(other: Preferences) {
+    return this.maxAge == other.maxAge && this.minAge == other.minAge && this.genders.sort().join(',') == other.genders.sort().join(',') && this.categorizedInterests.equals(other.categorizedInterests);
   }
 }
 
@@ -117,6 +131,7 @@ export class User {
       'profileImageUrl': this.profileImageUrl,
       'university': this.university,
       'preferences': this.preferences.toDict(),
+      'likes': this.likes,
     };
   }
 }
@@ -144,15 +159,18 @@ export class IndexedUserID {
 
 export class Recommendations {
   numberOfRecommendations: number;
+  queueID: string;
   recommendations: IndexedUserID[];
 
-  constructor(numberOfRecommendations: number, entries: IndexedUserID[]) {
+  constructor(queueID: string, numberOfRecommendations: number, entries: IndexedUserID[]) {
+    this.queueID = queueID;
     this.numberOfRecommendations = numberOfRecommendations;
     this.recommendations = entries;
   }
 
   toDict() {
     return {
+      "queueID": this.queueID,
       [constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD]: this.numberOfRecommendations,
       [constants.RECOMMENDATIONS_ENTRIES_ARRAY_FIELD]: this.recommendations.map(entry => entry.toDict())
     };
@@ -179,6 +197,6 @@ export var recommendationConverter = {
   fromFirestore: (snapshot: any, options: any) => {
     const data = snapshot.data(options);
     const recommendations = data.recommendations.map((entry: any) => new IndexedUserID(entry.uid, entry.index));
-    return new Recommendations(data[constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD], recommendations);
+    return new Recommendations(data["queueID"], data[constants.RECOMMENDATIONS_LAST_NUMBER_OF_RECOMMENDATIONS_FIELD], recommendations);
   }
 }

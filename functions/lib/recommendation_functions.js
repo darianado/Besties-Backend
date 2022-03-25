@@ -4,23 +4,26 @@ exports.requestRecommendationsHTTP = exports.requestRecommendations = exports.cr
 const utility_1 = require("./utility");
 const functions = require("firebase-functions");
 const models_1 = require("./models");
+const uuid_1 = require("uuid");
 const admin = require("firebase-admin");
 const utility = require("./utility");
 const constants = require("./constants");
-const createRecommendations = async function (user) {
+const createRecommendations = async function (user, queueID) {
+    await admin.firestore().collection(constants.USERS_REF).doc(user.uid).set({ "preferences": { "queueID": queueID } }, { 'merge': true });
     const upperBoundDOB = utility.offsetCurrentDateByYears(user.preferences.minAge);
     const lowerBoundDOB = utility.offsetCurrentDateByYears(user.preferences.maxAge);
     //console.log(`Looking for people born between ${lowerBoundDOB} and ${upperBoundDOB}`);
     var users = await admin.firestore().collection(constants.USERS_REF)
         .where(constants.USER_DOB_FIELD, '<=', upperBoundDOB)
         .where(constants.USER_DOB_FIELD, '>=', lowerBoundDOB)
-        //.where(constants.USER_INTERESTS_FIELD, 'array-contains-any', user.preferences.interests)
+        .where('gender', 'in', user.preferences.genders)
         .withConverter(models_1.userConverter)
         .get()
         .then((snapshot) => {
         return snapshot.docs
             .map((doc) => doc.data())
             .filter((entry) => entry.uid != user.uid)
+            .filter((entry) => (user.likes != null) ? !user.likes.includes(entry.uid) : true)
             .map((entry) => {
             const index = utility.compareCategorizedInterests(entry.categorizedInterests, user.preferences.categorizedInterests);
             return new models_1.IndexedUserID(entry.uid, index);
@@ -31,7 +34,7 @@ const createRecommendations = async function (user) {
     });
     users = users.slice(0, constants.MAX_NUMBER_OF_RECOMMENDATIONS_TO_GENERATE);
     console.log("users: " + users.length);
-    const recommendations = new models_1.Recommendations(users.length, users);
+    const recommendations = new models_1.Recommendations(queueID, users.length, users);
     console.log("recommendations: " + recommendations.recommendations.length);
     return await admin.firestore().collection(constants.USERS_REF).doc(user.uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(models_1.recommendationConverter).set(recommendations, { 'merge': true });
 };
@@ -41,25 +44,29 @@ const removeRecommendations = async function (n, recommendationsObject, ref) {
     await ref.withConverter(models_1.recommendationConverter).set(recommendationsObject, { 'merge': true });
     return popped;
 };
-const _requestRecommendations = async function (uid, recs) {
+const _requestRecommendations = async function (uid, recs, stop = false) {
     const user = (await admin.firestore().collection(constants.USERS_REF).doc(uid).withConverter(models_1.userConverter).get()).data();
     const recDocRef = admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF);
     const recommendations = (await recDocRef.withConverter(models_1.recommendationConverter).get()).data();
     if (recommendations != undefined && recommendations.recommendations.length >= 1) {
-        // Return entries as they are, (async append to queue with new recs).
         const result = await removeRecommendations(recs, recommendations, recDocRef);
         if (recommendations.recommendations.length - result.length <= recommendations.numberOfRecommendations * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
             // Add new entries to the queue, if there is less than 10% of the original users in the queue.
-            (0, exports.createRecommendations)(user);
+            (0, exports.createRecommendations)(user, recommendations.queueID);
         }
         return result.map((e) => e.uid);
     }
+    else if (recommendations != undefined) {
+        await (0, exports.createRecommendations)(user, recommendations.queueID);
+    }
     else {
-        // await append to queue, and return result, no matter what it is.
-        await (0, exports.createRecommendations)(user);
-        const newRecDoc = (await recDocRef.withConverter(models_1.recommendationConverter).get()).data();
-        const result = await removeRecommendations(recs, newRecDoc, recDocRef);
-        return result.map((e) => e.uid);
+        await (0, exports.createRecommendations)(user, (0, uuid_1.v4)());
+    }
+    if (stop) {
+        return [];
+    }
+    else {
+        return _requestRecommendations(uid, recs, true);
     }
 };
 exports.requestRecommendations = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data, context) => {

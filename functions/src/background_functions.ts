@@ -1,5 +1,7 @@
 import { auth } from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { v4 as uuidv4 } from 'uuid';
+import { User } from './models';
 const recommendationFunctions = require("./recommendation_functions");
 const utility = require("./utility");
 const models = require("./models");
@@ -9,7 +11,7 @@ const admin = require("firebase-admin");
 
 export const createUser = functions.region(constants.DEPLOYMENT_REGION).firestore.document(`${constants.USERS_REF}/{userId}`).onCreate((snapshot: functions.firestore.QueryDocumentSnapshot, context: functions.EventContext) => {
   const user = models.userConverter.fromFirestore(snapshot, context);
-  return recommendationFunctions.createRecommendations(user);
+  return recommendationFunctions.createRecommendations(user, uuidv4());
 });
 
 export const deleteFromFirestore = functions.region(constants.DEPLOYMENT_REGION).auth.user().onDelete(async (event : auth.UserRecord) => {
@@ -23,12 +25,12 @@ export const deleteFromFirestore = functions.region(constants.DEPLOYMENT_REGION)
 });
 
 export const updateUser = functions.region(constants.DEPLOYMENT_REGION).firestore.document(`${constants.USERS_REF}/{userId}`).onUpdate((snapshot: functions.Change<functions.firestore.QueryDocumentSnapshot>, context: functions.EventContext) => {
-  const userBefore = models.userConverter.fromFirestore(snapshot.before, context);
-  const userAfter = models.userConverter.fromFirestore(snapshot.after, context);
+  const userBefore: User = models.userConverter.fromFirestore(snapshot.before, context);
+  const userAfter: User = models.userConverter.fromFirestore(snapshot.after, context);
 
-  if(userBefore.preferences == userAfter.preferences) {
-    return;
+  if(!userBefore.preferences.equals(userAfter.preferences)) {
+    return recommendationFunctions.createRecommendations(userAfter, uuidv4());
   }
 
-  return recommendationFunctions.createRecommendations(userAfter);
+  return "No update";
 });
