@@ -19,8 +19,8 @@ export const deleteFromFirestore = functions.region(constants.DEPLOYMENT_REGION)
   const  matchDocsQuery: firestore.QuerySnapshot = admin.firestore().collection("matches").whereField("uids", "array-contains", uid).get(); //docs in which the user is a match
   const collectionRef = admin.firestore().collection("users").doc(uid); //document of the user to be deleted
  
-  matchDocsQuery.docs.forEach(element => {  
-    element.ref.delete();
+  matchDocsQuery.docs.forEach(async element => {  
+    await element.ref.delete();
   });
   
   utility.deleteAllImagesForUser(uid);

@@ -14,11 +14,14 @@ exports.createUser = functions.region(constants.DEPLOYMENT_REGION).firestore.doc
 });
 exports.deleteFromFirestore = functions.region(constants.DEPLOYMENT_REGION).auth.user().onDelete(async (event) => {
     const uid = event.uid;
+    const matchDocsQuery = admin.firestore().collection("matches").whereField("uids", "array-contains", uid).get(); //docs in which the user is a match
     const collectionRef = admin.firestore().collection("users").doc(uid); //document of the user to be deleted
+    matchDocsQuery.docs.forEach(element => {
+        element.ref.delete();
+    });
     utility.deleteAllImagesForUser(uid);
     await collectionRef.collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).delete();
     await collectionRef.delete();
-    //TO DO : Delete the matches involving that user 
 });
 exports.updateUser = functions.region(constants.DEPLOYMENT_REGION).firestore.document(`${constants.USERS_REF}/{userId}`).onUpdate((snapshot, context) => {
     const userBefore = models.userConverter.fromFirestore(snapshot.before, context);
