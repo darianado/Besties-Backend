@@ -5,12 +5,14 @@ const constants = require("./constants");
 const firebase_admin_1 = require("firebase-admin");
 const functions = require("firebase-functions");
 const models_1 = require("./models");
+const uuid_1 = require("uuid");
 const utility_1 = require("./utility");
 const admin = require("firebase-admin");
 const createMatch = async function (uid1, uid2) {
-    await admin.firestore().collection("matches").doc().set({
-        "uid1": uid1,
-        "uid2": uid2,
+    const uuid = (0, uuid_1.v4)();
+    await admin.firestore().collection("matches").doc(uuid).set({
+        "timestamp": firebase_admin_1.firestore.Timestamp.now(),
+        "uids": [uid1, uid2],
     }, { 'merge': true });
 };
 exports.createMatch = createMatch;

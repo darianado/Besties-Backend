@@ -3,14 +3,17 @@ import { firestore } from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { CallableContext } from 'firebase-functions/v1/https';
 import { userConverter } from './models';
+import { v4 as uuidv4 } from 'uuid';
 import { errorMessage, successMessage } from './utility';
 const admin = require("firebase-admin");
 
 
 export const createMatch = async function( uid1 : any , uid2 : any ) {
-  await admin.firestore().collection("matches").doc().set({
-    "uid1": uid1,
-    "uid2": uid2,
+  const uuid = uuidv4();
+
+  await admin.firestore().collection("matches").doc(uuid).set({
+    "timestamp": firestore.Timestamp.now(),
+    "uids": [uid1, uid2],
   }, { 'merge': true });
 }
 
