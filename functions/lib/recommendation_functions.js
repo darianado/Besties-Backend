@@ -5,18 +5,26 @@ const utility_1 = require("./utility");
 const functions = require("firebase-functions");
 const models_1 = require("./models");
 const uuid_1 = require("uuid");
-const admin = require("firebase-admin");
 const utility = require("./utility");
 const constants = require("./constants");
+const refs = require("./firestore_refs");
+// ###################################################
+// # Helper functions for recommendation functions
+// ###################################################
+/**
+ * Creates recommendations for a specific 'User'. This function creates matches based on
+ * maximum age, minimum age, gender, as well as similarity in interests between the user and other users in Firestore.
+ * @param user A 'User' object for whom recommendations should be made
+ * @param queueID A unique string that can be used to distinguish a completely new queue of recommendations.
+ * @returns A Promise updating the recommendations document in Firestore.
+ */
 const createRecommendations = async function (user, queueID) {
-    await admin.firestore().collection(constants.USERS_REF).doc(user.uid).set({ "preferences": { "queueID": queueID } }, { 'merge': true });
     const upperBoundDOB = utility.offsetCurrentDateByYears(user.preferences.minAge);
     const lowerBoundDOB = utility.offsetCurrentDateByYears(user.preferences.maxAge);
-    //console.log(`Looking for people born between ${lowerBoundDOB} and ${upperBoundDOB}`);
-    var users = await admin.firestore().collection(constants.USERS_REF)
+    var users = await refs.usersRef
         .where(constants.USER_DOB_FIELD, '<=', upperBoundDOB)
         .where(constants.USER_DOB_FIELD, '>=', lowerBoundDOB)
-        .where('gender', 'in', user.preferences.genders)
+        .where(constants.USER_GENDER_FIELD, 'in', user.preferences.genders)
         .withConverter(models_1.userConverter)
         .get()
         .then((snapshot) => {
@@ -33,25 +41,36 @@ const createRecommendations = async function (user, queueID) {
         });
     });
     users = users.slice(0, constants.MAX_NUMBER_OF_RECOMMENDATIONS_TO_GENERATE);
-    console.log("users: " + users.length);
     const recommendations = new models_1.Recommendations(queueID, users.length, users);
-    console.log("recommendations: " + recommendations.recommendations.length);
-    return await admin.firestore().collection(constants.USERS_REF).doc(user.uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).withConverter(models_1.recommendationConverter).set(recommendations, { 'merge': true });
+    return await refs.recommendationsRef(user.uid).withConverter(models_1.recommendationConverter).set(recommendations, { 'merge': true });
 };
 exports.createRecommendations = createRecommendations;
+/**
+ * Removes the desired number of recommendations from a 'Recommendations' object and saves the updated version to firestore.
+ * @param n Desired of recommendations to remove (actual number may be less)
+ * @param recommendationsObject 'Recommendations' object containing the recommendations to remove from.
+ * @param ref A Firestore Document reference to the recommendation object which should be altered.
+ * @returns Array of user IDs and their corresponding Jaccard index.
+ */
 const removeRecommendations = async function (n, recommendationsObject, ref) {
     const popped = recommendationsObject.recommendations.splice(Math.max(recommendationsObject.recommendations.length - n, 0));
     await ref.withConverter(models_1.recommendationConverter).set(recommendationsObject, { 'merge': true });
     return popped;
 };
+/**
+ * Requests a number of user IDs corresponding to recommendations for a specific user.
+ * @param uid User ID of the person for whom the request is for
+ * @param recs Desired number of recommendations to return (returned number may be less)
+ * @param stop If false, the function may call itself again once to re-attempt fetching recommendations if none are returned.
+ * @returns Array of user IDs corresponding to the recommended user. Highest index is best match.
+ */
 const _requestRecommendations = async function (uid, recs, stop = false) {
-    const user = (await admin.firestore().collection(constants.USERS_REF).doc(uid).withConverter(models_1.userConverter).get()).data();
-    const recDocRef = admin.firestore().collection(constants.USERS_REF).doc(uid).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF);
+    const user = (await refs.usersRef.doc(uid).withConverter(models_1.userConverter).get()).data();
+    const recDocRef = refs.recommendationsRef(uid);
     const recommendations = (await recDocRef.withConverter(models_1.recommendationConverter).get()).data();
     if (recommendations != undefined && recommendations.recommendations.length >= 1) {
         const result = await removeRecommendations(recs, recommendations, recDocRef);
-        if (recommendations.recommendations.length - result.length <= recommendations.numberOfRecommendations * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
-            // Add new entries to the queue, if there is less than 10% of the original users in the queue.
+        if (recommendations.recommendations.length - result.length <= recommendations.lastNumberOfRecs * constants.THRESHOLD_FOR_GENERATING_RECOMMENDATIONS) {
             (0, exports.createRecommendations)(user, recommendations.queueID);
         }
         return result.map((e) => e.uid);
@@ -69,6 +88,23 @@ const _requestRecommendations = async function (uid, recs, stop = false) {
         return _requestRecommendations(uid, recs, true);
     }
 };
+// ###################################################
+// # Directly callable functions
+// ###################################################
+/**
+ * Firebase Function that returns a set of recommendations as a payload in the form
+ * {
+ *    "status": 200,
+ *    "data": [
+ *      "abc123",
+ *      "bcd123"
+ *    ]
+ * }
+ *
+ * The function must be called using the Google Cloud SDK from an authenticated context, as it uses
+ * the 'uid' of the user in the active session to determine its response.
+ * The 'recs' (desired number of recommendations to fetch) parameter is also required, and must be parsed in the request payload/body.
+ */
 exports.requestRecommendations = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data, context) => {
     var _a;
     const uid = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid;
@@ -87,6 +123,21 @@ exports.requestRecommendations = functions.region(constants.DEPLOYMENT_REGION).h
         return (0, utility_1.errorMessage)(err.message);
     }
 });
+/**
+ * Firebase Function that returns a set of recommendations as a json payload in the form
+ * {
+ *    "status": 200,
+ *    "data": [
+ *      "abc123",
+ *      "bcd123"
+ *    ]
+ * }
+ *
+ * The function requires that the body/payload of the request contains
+ * 'uid' (user ID of the person to get recommendations for) and 'recs' (desired number of recommendations to fetch) parameters.
+ *
+ * The HTTP version of this function is required for platforms which do not support the Google Cloud SDK (like Python for the Backend Manager tool).
+ */
 exports.requestRecommendationsHTTP = functions.region(constants.DEPLOYMENT_REGION).https.onRequest(async (request, response) => {
     const uid = request.body.uid;
     const recs = request.body.recs;

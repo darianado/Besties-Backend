@@ -1,27 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.offsetCurrentDateByYears = exports.errorMessage = exports.successMessage = exports.deleteAllImagesForUser = exports.compareCategorizedInterests = exports.compareSet = exports.compareHash = exports.unhash = exports.hash = void 0;
+exports.offsetCurrentDateByYears = exports.errorMessage = exports.successMessage = exports.compareCategorizedInterests = void 0;
 const jaccard = require('jaccard');
-const admin = require("firebase-admin");
-const constants = require("./constants");
-const hash = function (arr) {
-    return arr.join("#").toUpperCase();
-};
-exports.hash = hash;
-const unhash = function (hash) {
-    return hash.split("#");
-};
-exports.unhash = unhash;
-const compareHash = function (h1, h2) {
-    const h1_unhashed = exports.unhash(h1);
-    const h2_unhashed = exports.unhash(h2);
-    return jaccard.index(h1_unhashed, h2_unhashed);
-};
-exports.compareHash = compareHash;
-const compareSet = function (s1, s2) {
-    return jaccard.index(s1, s2);
-};
-exports.compareSet = compareSet;
+/**
+ * Calculates the Jaccard index (intersection over union) of the interests contained in the two objects to be compared.
+ * @param c1 A 'CategorizedInterests' object to compare
+ * @param c2 A 'CategorizedInterests' object to compare
+ * @returns The Jaccard-index of similarity between the interests in the two sets.
+ */
 const compareCategorizedInterests = function (c1, c2) {
     const s1 = c1.getFlattenedInterests();
     const s2 = c2.getFlattenedInterests();
@@ -29,13 +15,13 @@ const compareCategorizedInterests = function (c1, c2) {
     return index;
 };
 exports.compareCategorizedInterests = compareCategorizedInterests;
-const deleteAllImagesForUser = async function (userId) {
-    const bucket = admin.storage().bucket();
-    return bucket.deleteFiles({
-        prefix: `${constants.USER_AVATAR_FOLDER_REF}/${userId}`
-    });
-};
-exports.deleteAllImagesForUser = deleteAllImagesForUser;
+/**
+ * Creates a success message.
+ * Can be used to return to any caller when the requested function executed as intended.
+ * @param data Object to return as payload/result of the function
+ * @param status HTTP-like status code that indicates the context of the result
+ * @returns Success message object
+ */
 const successMessage = function (data, status = 200) {
     return {
         "status": status,
@@ -43,6 +29,13 @@ const successMessage = function (data, status = 200) {
     };
 };
 exports.successMessage = successMessage;
+/**
+ * Creates an error message.
+ * Can be used to return to any caller when the requested function could not execute as intended.
+ * @param message Message to be sent in 'message' field
+ * @param status HTTP-like status code that supports the message
+ * @returns Error message object
+ */
 const errorMessage = function (message, status = 400) {
     return {
         "status": status,
@@ -50,6 +43,11 @@ const errorMessage = function (message, status = 400) {
     };
 };
 exports.errorMessage = errorMessage;
+/**
+ * Offsets the current date by an amount of years in the past.
+ * @param years Number of years to offset by (in negative direction)
+ * @returns Offset date
+ */
 const offsetCurrentDateByYears = function (years) {
     const currentDate = new Date();
     return new Date(currentDate.setFullYear(currentDate.getFullYear() - years));
