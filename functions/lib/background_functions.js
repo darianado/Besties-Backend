@@ -7,6 +7,7 @@ const recommendationFunctions = require("./recommendation_functions");
 const models = require("./models");
 const constants = require("./constants");
 const admin = require("firebase-admin");
+const refs = require("./firestore_refs");
 // ###################################################
 // # Helper functions for background triggers
 // ###################################################
@@ -15,14 +16,14 @@ const admin = require("firebase-admin");
  * @param userID The user ID of the user.
  */
 const _removeUserData = async function (userID) {
-    await admin.firestore().collection(constants.USERS_REF).doc(userID).delete();
+    await refs.usersRef.doc(userID).delete();
 };
 /**
  * Deletes the Firestore document representing a given user's recommendations.
  * @param userID The user ID of the user.
  */
 const _removeRecommendations = async function (userID) {
-    await admin.firestore().collection(constants.USERS_REF).doc(userID).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF).delete();
+    await refs.recommendationsRef(userID).delete();
 };
 /**
  * Deletes all images that are associated with the given user.
@@ -36,9 +37,22 @@ const _removeImages = async function (userID) {
  * @param userID The user ID of the user.
  */
 const _removeMatches = async function (userID) {
-    const matchDocsQuery = await admin.firestore().collection(constants.MATCHES_REF).where(constants.MATCH_USER_IDS_FIELD, "array-contains", userID).get();
+    const matchDocsQuery = await refs.matchesRef.where(constants.MATCH_USER_IDS_FIELD, "array-contains", userID).get();
     if (matchDocsQuery.docs != undefined) {
         matchDocsQuery.docs.forEach(async (element) => {
+            await _removeMessages(element.id);
+            await element.ref.delete();
+        });
+    }
+};
+/**
+ * Deletes all messages contained within a given match.
+ * @param matchID The ID of the match whose messages are to be deleted.
+ */
+const _removeMessages = async function (matchID) {
+    const messagesDocsQuery = await refs.messagesRef(matchID).get();
+    if (messagesDocsQuery != undefined) {
+        messagesDocsQuery.docs.forEach(async (element) => {
             await element.ref.delete();
         });
     }

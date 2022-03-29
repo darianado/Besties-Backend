@@ -8,3 +8,6 @@ export const matchesRef: firestore.CollectionReference = admin.firestore().colle
 export const recommendationsRef = function(userID: string) : firestore.DocumentReference {
   return usersRef.doc(userID).collection(constants.USER_DERIVED_REF).doc(constants.USER_RECOMMENDATIONS_REF);
 }
+export const messagesRef = function(matchID: string) : firestore.CollectionReference {
+  return matchesRef.doc(matchID).collection(constants.MATCH_MESSAGES_REF)
+}

@@ -8,6 +8,7 @@ export const MATCHES_REF = 'matches';
 export const USERS_REF = 'users';
 export const USER_DERIVED_REF = 'derived';
 export const USER_RECOMMENDATIONS_REF = 'recommendations';
+export const MATCH_MESSAGES_REF = 'messages';
 
 /* Firestore fields */
 export const USER_UID_FIELD = 'uid';
