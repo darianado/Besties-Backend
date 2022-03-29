@@ -3,7 +3,7 @@
 **Application title:** Backend source code
 
 **Authors:**
-* Nikolaj Banke Jense
+* Nikolaj Banke Jensen
 * Chukwudalu Esomeju
 * Dariana Dorin
 * Luca Brown
