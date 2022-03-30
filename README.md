@@ -21,7 +21,7 @@ This repository contains all configuration files and source code used for the Be
 **This application is intended to work on macOS and Linux only.** 
 
 In order to use this application, you must setup credentials on your machine and install dependencies. Follow this guide:
-1.	Install the Firebase CLI on https://firebase.google.com/docs/cli.
+1.	Install the Firebase CLI [here](https://firebase.google.com/docs/cli).
 2.	Open a new terminal window and navigate to the folder called ‘functions’. 
 3.	Run the command `npm install` to get the dependencies required. 
 4.	Open another terminal window and navigate to the root directory of this application.
