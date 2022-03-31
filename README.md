@@ -3,7 +3,7 @@
 **Application title:** Backend source code
 
 **Authors:**
-* Nikolaj Banke Jense
+* Nikolaj Banke Jensen
 * Chukwudalu Esomeju
 * Dariana Dorin
 * Luca Brown
@@ -23,9 +23,11 @@ This repository contains all configuration files and source code used for the Be
 In order to use this application, you must setup credentials on your machine and install dependencies. Follow this guide:
 1.	Install the Firebase CLI [here](https://firebase.google.com/docs/cli).
 2.	Open a new terminal window and navigate to the folder called ‘functions’. 
-3.	Run the command `npm install` to get the dependencies required. 
-4.	Open another terminal window and navigate to the root directory of this application.
-5.	Run the command `firebase emulators:start`. This will start an instance of the Firebase Emulator directly in the terminal and provide instructions on how to interact with the instance in your browser.
+3.	Run the command `firebase login` to log into Firebase using your Google account. 
+4.	Open a new terminal window and navigate to the folder called ‘functions’. 
+5.	Run the command `npm install` to get the dependencies required. 
+6.	Open another terminal window and navigate to the root directory of this application.
+7.	Run the command `firebase emulators:start`. This will start an instance of the Firebase Emulator directly in the terminal and provide instructions on how to interact with the instance in your browser.
 
 
 ## Using the project
