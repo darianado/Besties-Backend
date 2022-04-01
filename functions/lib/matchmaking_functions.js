@@ -77,16 +77,21 @@ const _likeUser = async function (userID, otherUserID) {
  */
 exports.likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(async (data, context) => {
     var _a;
-    const userID = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid;
+    const likerUserID = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid;
     const otherUserID = data.profileUserID;
-    if (userID == null) {
+    if (likerUserID == null) {
         return (0, utility_1.errorMessage)("The caller must be authenticated.", 401);
     }
     if (otherUserID == null) {
         return (0, utility_1.errorMessage)("The 'otherUserID' parameter must be provided in the payload.", 400);
     }
-    const result = await _likeUser(userID, otherUserID);
-    return (0, utility_1.successMessage)(result);
+    try {
+        const result = await _likeUser(likerUserID, otherUserID);
+        return (0, utility_1.successMessage)(result);
+    }
+    catch (err) {
+        return (0, utility_1.errorMessage)(err.message);
+    }
 });
 /**
  * Firebase Function that records a 'like' given by one user to another. It returns a json payload in the form
@@ -103,15 +108,20 @@ exports.likeUser = functions.region(constants.DEPLOYMENT_REGION).https.onCall(as
  * The HTTP version of this function is required for platforms which do not support the Google Cloud SDK (like Python for the Backend Manager tool).
  */
 exports.likeUserHTTP = functions.region(constants.DEPLOYMENT_REGION).https.onRequest(async (request, response) => {
-    const userID = request.body.likerUserID;
+    const likerUserID = request.body.likerUserID;
     const otherUserID = request.body.otherUserID;
-    if (userID == null) {
-        response.send((0, utility_1.errorMessage)("The 'userID' parameter must be provided in the payload.", 400));
+    if (likerUserID == null) {
+        response.send((0, utility_1.errorMessage)("The 'likerUserID' parameter must be provided in the payload.", 400));
     }
     if (otherUserID == null) {
         response.send((0, utility_1.errorMessage)("The 'otherUserID' parameter must be provided in the payload.", 400));
     }
-    const result = await _likeUser(userID, otherUserID);
-    response.send((0, utility_1.successMessage)(result));
+    try {
+        const result = await _likeUser(likerUserID, otherUserID);
+        response.send((0, utility_1.successMessage)(result));
+    }
+    catch (err) {
+        response.send((0, utility_1.errorMessage)(err.message));
+    }
 });
 //# sourceMappingURL=matchmaking_functions.js.map

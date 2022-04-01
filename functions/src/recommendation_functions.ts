@@ -125,11 +125,9 @@ export const requestRecommendations = functions.region(constants.DEPLOYMENT_REGI
     return errorMessage("The 'recs' parameter must be provided in the payload.", 400);
   }
 
-  
-
   try {
     const result = await _requestRecommendations(uid, recs);
-  return successMessage(result);
+    return successMessage(result);
   } catch(err) {
     return errorMessage((err as Error).message);
   }
